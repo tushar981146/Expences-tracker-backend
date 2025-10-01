@@ -13,7 +13,7 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser({ limit: '10mb', extended: true }));
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: process.env.link || "http://localhost:5173",
   credentials: true,
 }))
 
