@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         httpOnly: true,
         sameSite: 'None',
-        secure: process.env.NODE_ENV == 'development' // true in production, false in development
+        secure: process.env.NODE_ENV === 'production' // true in production, false in development
     })
 
     return token;
