@@ -7,8 +7,8 @@ import jwt from 'jsonwebtoken';
     res.cookie("jwt", token, {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         httpOnly: true,
-        sameSite: 'strict',
-        secure: process.env.NODE_ENV !== 'development' // true in production, false in development
+        sameSite: 'None',
+        secure: process.env.NODE_ENV == 'development' // true in production, false in development
     })
 
     return token;
