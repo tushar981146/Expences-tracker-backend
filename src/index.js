@@ -13,7 +13,11 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser({ limit: '10mb', extended: true }));
 app.use(cors({
-  origin: process.env.link || "http://localhost:5173" || process.env.render,
+  const allowedOrigins = [
+  "http://localhost:5173",
+  "https://expenses-tracker-frontend-k3nx.onrender.com",
+  "https://expenses-tracker-frontend-l9hu.vercel.app"
+],
   credentials: true,
 }))
 
