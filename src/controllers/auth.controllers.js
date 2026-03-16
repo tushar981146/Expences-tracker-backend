@@ -1,56 +1,46 @@
-import { generateToken } from '../libs/utils.js';
-import User from '../models/user.modules.js';
+import { generateAccessToken, generateRefreshToken } from '../config/utils.js';
+import auth from '../repo/user.repo.js'
+import { AuthHandler, cloudinaryHandler } from '../service/auth.services.js';
 import bcrypt from 'bcryptjs';
-import cloudinary from '../libs/cloudinary.js';
-
+import TokenRepo from '../repo/token.repo.js';
 
 export const signup = async (req, res) => {
 
-
-    const { fullName, email, password } = req.body;
     try {
 
 
+        const user = await AuthHandler.signupService(req.body);
 
-        if (!fullName || !email || !password) {
-            return res.status(400).json({ message: 'All feilds are required' });
-        }
+        if (user === false) return res.status(400).json({ message: 'user already exists' });
 
-        if (password.length < 6) {
-            return res.status(400).json({ message: 'password must more than 6 characters' });
-        }
-
-        const user = await User.findOne({ email });
-
-        if (user) return res.status(400).json({ message: 'user already exists' });
-
-        const salt = await bcrypt.genSalt(10)
-
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        const newUser = new User({
-            email,
-            fullName,
-            password: hashedPassword
-        })
-
-        if (newUser) {
+        const accessToken = generateAccessToken(user._id, user.email, user.fullName, user.profilePic);
+        const { refreshToken, tokenId } = generateRefreshToken(user._id);
 
 
-            generateToken(newUser._id, res);
-            await newUser.save();
 
-            res.status(201).json({
-                _id: newUser._id,
-                fullName: newUser.fullName,
-                email: newUser.email,
-                profilePic: newUser.profilePic,
-                token: res.cookie.jwt
-            })
-        }
-        else {
-            res.status(400).json({ message: 'invalid user data' })
-        }
+
+        await TokenRepo.saveRefreshToken(user._id, tokenId, req.headers['user-agent'], req.ip);
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+
+
+
+        return res.status(201).json({
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            profilePic: user.profilePic,
+            token: accessToken
+        });
+
+
+
 
     } catch (error) {
         console.error("Error in signup controller:", error);
@@ -59,26 +49,22 @@ export const signup = async (req, res) => {
 
 export const login = async (req, res) => {
     // Logic for user signup
-
-    const { email, password } = req.body;
-
     try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: 'User does not exist' });
-        }
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+        const userObj = await AuthHandler.loginService(req.body);
+
+        if (userObj.status !== 200) {
+            return res.status(userObj.status).json({ message: userObj.message });
         }
 
-        generateToken(user._id, res);
-        res.status(200).json({
-            _id: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            profilePic: user.profilePic,
-        });
+        else {
+            res.status(200).json({
+                _id: userObj.user._id,
+                fullName: userObj.user.fullName,
+                email: userObj.user.email,
+                profilePic: userObj.user.profilePic,
+                token: userObj.accessToken
+            });
+        }
     } catch (error) {
         console.error("Error in login controller:", error);
         res.status(500).json({ message: 'Invalid creditionals' });
@@ -108,9 +94,8 @@ export const updateProfile = async (req, res) => {
             return res.status(400).json({ message: 'Profile picture is required' });
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic);
-        const updateUser = await User.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true });
-
+        const uploadResponse = await cloudinaryHandler.upload(profilePic);
+        const updateUser = auth.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url })
         res.status(200).json(updateUser)
 
     } catch (error) {
@@ -136,10 +121,9 @@ export const generalupdate = async (req, res) => {
         const { email, fullName } = req.body;
         const userId = req.user._id;
 
-        const updatedUser = await User.findByIdAndUpdate(
+        const updatedUser = auth.findByIdAndUpdate(
             userId,
-            { email, fullName },
-            { new: true } // return updated document
+            { email, fullName }
         );
 
         if (!updatedUser) {
@@ -162,7 +146,7 @@ export const passwordUpdate = async (req, res) => {
     const userId = req.user._id;
 
     try {
-        const user = await User.findById(userId);
+        const user = auth.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -181,3 +165,44 @@ export const passwordUpdate = async (req, res) => {
         res.status(500).json({ message: "internal server Error" })
     }
 };
+
+export const refreshToken = async (req, res) => {
+    
+    const authHeader = req.headers.authorization;
+    const refreshHeaders = req.headers.cookie;
+
+    const refreshToken = (refreshHeaders && refreshHeaders.split('=')[1]) ||(authHeader && authHeader.split(" ")[1]);
+
+
+    try {
+        const validationResponse = await AuthHandler.refreshTokenValidationService(refreshToken, req);
+
+        if (validationResponse.status !== 200) {
+            return res.status(validationResponse.status).json({ message: validationResponse.message });
+        }
+
+        res.cookie("refreshToken", validationResponse.newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(validationResponse.status).json({ 
+            token: validationResponse.accessToken, 
+            _id: validationResponse.userId,
+            fullName: validationResponse.fullName,
+            email: validationResponse.email,
+            profilePic: validationResponse.profilePic
+         });
+
+    } catch (error) {
+        console.error("Error in refreshToken controller:", error.message);
+        res.status(500).json({ message: "Internal server error" });
+    }
+
+
+
+
+};
+

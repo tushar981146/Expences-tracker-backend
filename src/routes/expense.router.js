@@ -4,7 +4,7 @@ import express from 'express'
 const router = express.Router();
 
 import { getExpenses, addExpense, addTitleList, fetchTitleList, updateTitleList, deleteTitleList } from '../controllers/expense.controllers.js';
-import { protectRoute } from "../middleware/middleware.js"
+import { protectRoute } from "../middleware/auth.middleware.js"
 
 
 

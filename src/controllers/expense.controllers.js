@@ -1,19 +1,25 @@
-import BudgetList from "../models/BudgetList.modules.js"
-import Expense from "../models/expences.modules.js"
+
+import { expensesService } from "../service/expenses.services.js";
 
 
 export const getExpenses = async (req, res) => {
     try {
 
-        const userId = req.params.id;
-        await Expense.find({ userId }).then((expenses) => {
+        if(!req.params.id){
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        
+        const expenses = await expensesService.findExpensesById(req.params.id);
+
+
+        if (!expenses || expenses.length === 0) {
+            return res.status(404).json({ message: 'Expenses not found' });
+        }
 
             res.status(200).json(expenses);
 
-        }).catch((error) => {
-            console.error(error);
-            res.status(500).json({ message: 'Server error' });
-        });
+        
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -31,19 +37,9 @@ export const addExpense = async (req, res) => {
             return res.status(400).json({ message: 'All fields are required' });
         };
 
-        
-
-        const newExpense = new Expense({
-            userId,
-            amount,
-            category,
-            type,
-            description,
-            date
-        });
-        const data = await newExpense.save();
-
+        const data = await expensesService.newExpense({ amount, category, description, date, type, userId });
         res.status(201).json(data);
+
     } catch (error) {
         console.error('Error adding expense:', error);
         res.status(500).json({ message: 'Server error' });
@@ -59,12 +55,12 @@ export const addTitleList = async (req, res) => {
 
     try {
         const userId = req.user._id;
-        const newTitle = new BudgetList({
+        const newTitle = await expensesService.BudgetList({
             userId,
             title
         });
-        await newTitle.save();
         res.status(201).json(newTitle);
+
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -74,7 +70,7 @@ export const addTitleList = async (req, res) => {
 export const fetchTitleList = async (req, res) => {
     try {
         const userId = req.user._id;
-        const titles = await BudgetList.find({ userId });
+        const titles = await expensesService.findBudgetList(userId);
 
         res.status(200).json(titles);
     } catch (error) {
@@ -86,7 +82,7 @@ export const fetchTitleList = async (req, res) => {
 export const deleteTitleList = async (req, res) => {
     try {
         const { id } = req.params;
-        await BudgetList.findByIdAndDelete(id);
+        await expensesService.findByIdAndDelete(id);
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
@@ -101,7 +97,7 @@ export const updateTitleList = async (req, res) => {
         if (!title) {
             return res.status(400).json({ message: 'Title is required' });
         };
-        const updatedTitle = await BudgetList.findByIdAndUpdate(id, { title }, { new: true });
+        const updatedTitle = await expensesService.findByIdAndUpdate(id, { title }, { new: true });
         if (!updatedTitle) {
             return res.status(404).json({ message: 'Title not found' });
         };
