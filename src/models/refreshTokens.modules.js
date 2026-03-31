@@ -21,7 +21,12 @@ const refreshTokenSchema = new mongoose.Schema({
     revoked: {
         type: Boolean,
         default: false,
-    }
+    },
+    expireAt: { 
+        type: Date, 
+        default: () => new Date(Date.now() + 7*24*60*60*1000), 
+        index: { expires: 0 } 
+    },
 
 }, {
     timestamps: true,

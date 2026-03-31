@@ -4,11 +4,12 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
-
+import CustomError from './utils/customError.js';
 
 import authRouters from './routes/auth.routers.js';
 import expensesRouters from './routes/expense.router.js';
 import config from './config/index.js';
+import errorHandler from './controllers/error.controllers.js';
 
 dotenv.config();
 
@@ -45,6 +46,25 @@ app.use(limiter);
 
 app.use(`${config.api.prefix}${config.api.route.auth}`, authRouters);
 app.use(`${config.api.prefix}${config.api.route.expenses}`, expensesRouters);
+
+
+
+
+
+
+
+app.use((req, res, next) => {
+
+  const err = new CustomError(`can't find this route ${req.originalUrl} on server`, 404);
+
+  next(err)
+})
+
+
+
+app.use(errorHandler)
+
+
 
 
 export default app;

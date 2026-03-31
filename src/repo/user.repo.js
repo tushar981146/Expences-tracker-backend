@@ -13,6 +13,16 @@ const authdb = {
         }
     },
 
+    findUserByEmailWithPassword: async (email) => {
+        try {
+            const user = await User.findOne({ email })
+            return user;
+        } catch (error) {
+            console.error("Error finding user by email:", error);
+            throw error;
+        }
+    },
+
     createUser: async (userData = {}) => {
         try {
             const user = await User.create(userData);

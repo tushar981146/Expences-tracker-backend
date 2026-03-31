@@ -1,6 +1,8 @@
 import BudgetList from "../models/BudgetList.modules.js";
 import Expense from "../models/expences.modules.js";
-import {expensesRepo} from '../repo/expenses.repo.js'
+import { expensesRepo } from '../repo/expenses.repo.js'
+import asyncErrorHandler from "../utils/asyncErrorHandler.js";
+import CustomError from "../utils/customError.js";
 
 
 
@@ -8,67 +10,73 @@ import {expensesRepo} from '../repo/expenses.repo.js'
 
 
 export const expensesService = {
-    
 
-    newExpense: async(data ={}) => {
-        try {
-            const expense = await Expense.create(data);
-            return expense;
-        } catch (error) {
-            console.error("Error creating expense service:", error);
-            throw error;
-        }
+
+    newExpense: async (data = {}) => {
+
+        if (!data.amount || !data.category || !data.description || !data.date || !data.type || !data.userId) new CustomError('All fields are required', 400)
+
+        const expense = await Expense.create(data);
+        return expense;
+
     },
 
     findExpensesById: async (id) => {
-        try {
-            const expense = await expensesRepo.findExpensesData(id);
-            return expense;
-        } catch (error) {
-            console.error("Error finding expense service:", error);
-            throw error;
-        }
+
+        if(!id)  new CustomError('User ID is required', 400)
+
+        const expense = await expensesRepo.findExpensesData(id);
+
+        if (!expense || expense.length === 0) new CustomError('Expenses not found', 404);
+
+
+
+        return expense;
+
     },
 
-    BudgetList: async(data ={}) => {
-        try {
-            const budgetList = await BudgetList.create(data);
-            return budgetList;
-        } catch (error) {
-            console.error("Error creating budget list service:", error);
-            throw error;
-        }
+    BudgetList: async (title, id) => {
+        
+
+        if (!title || !id)  new CustomError('Titlea nd ID is required', 400);
+     
+        const budgetList = await BudgetList.create({title, userId: id});
+        return budgetList;
+
     },
 
-    findBudgetList: async(userId) => {
-        try {
-            const budgetList = await BudgetList.find({ userId });
-            return budgetList;
-        } catch (error) {
-            console.error("Error finding budget list service:", error);
-            throw error;
-        }
+    findBudgetList: async (userId) => {
+         if(!userId) throw  new CustomError('User ID is required', 400)
+            
+
+        const budgetList = await BudgetList.find({userId});
+
+        if (!budgetList.length) throw new CustomError('No budget found', 404);
+
+
+        return budgetList;
+
     },
 
 
     findByIdAndDelete: async (id) => {
-        try {
-            const deletedBudgetList = await BudgetList.findByIdAndDelete(id);
-            return deletedBudgetList;
-        } catch (error) {
-            console.error("Error deleting budget list service:", error);
-            throw error;
-        }
+
+         if(!id)  new CustomError('User ID is required', 400)
+
+        const deletedBudgetList = await BudgetList.findByIdAndDelete(id);
+        return deletedBudgetList;
+
     },
 
     findByIdAndUpdate: async (id, data) => {
-        try {
-            const updatedBudgetList = await BudgetList.findByIdAndUpdate(id, data, { new: true });
-            return updatedBudgetList;   
-        } catch (error) {
-            console.error("Error updating budget list service:", error);
-            throw error;
-        }
+
+         if(!id || data)  new CustomError('User ID and title is required', 400)
+
+        const updatedBudgetList = await BudgetList.findByIdAndUpdate(id, data, { new: true });
+
+        if (!updatedBudgetList) new CustomError('title not found', 404);
+
+        return updatedBudgetList;
     }
 
 }
